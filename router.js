@@ -1,34 +1,44 @@
-// router.js — routing logic
+const http = require("http");
+const fs = require("fs");
 const path = require("path");
-const { serveFile, serveNotFound } = require("./fileService");
 
-// Map routes to file paths (relative to project root)
-const ROUTES = {
-  "/": "pages/home.html",
-  "/home": "pages/home.html",
-  "/about": "pages/about.html",
-  "/contact": "pages/contact.html",
-};
+const PORT = 3000;
 
-async function handleRequest(req, res) {
-  const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
-  const pathname = parsedUrl.pathname;
+const server = http.createServer((req, res) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
 
-  // Serve static CSS under /styles/ or any assets under /assets/
-  if (pathname.startsWith("/styles/") || pathname.startsWith("/assets/")) {
-    const filePath = path.join(__dirname, pathname);
-    return serveFile(filePath, res);
+  let filePath = "";
+  let statusCode = 200;
+
+  if (req.url === "/" || req.url === "/home") {
+    filePath = path.join(__dirname, "pages", "home.html");
+  } else if (req.url === "/about") {
+    filePath = path.join(__dirname, "pages", "about.html");
+  } else if (req.url === "/contact") {
+    filePath = path.join(__dirname, "pages", "contact.html");
+  } else if (req.url.startsWith("/styles/")) {
+    filePath = path.join(__dirname, req.url);
+  } else {
+    filePath = path.join(__dirname, "pages", "404.html");
+    statusCode = 404;
   }
 
-  // If route is defined, serve corresponding HTML file
-  if (ROUTES[pathname]) {
-    const filePath = path.join(__dirname, ROUTES[pathname]);
-    return serveFile(filePath, res, 200);
-  }
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      res.statusCode = 500;
+      res.setHeader("Content-Type", "text/plain");
+      res.end("Server error");
+    } else {
+      res.statusCode = statusCode;
+      res.setHeader(
+        "Content-Type",
+        req.url.endsWith(".css") ? "text/css" : "text/html"
+      );
+      res.end(data);
+    }
+  });
+});
 
-  // Otherwise, return custom 404 page
-  const file404 = path.join(__dirname, "pages", "404.html");
-  return serveNotFound(file404, res);
-}
-
-module.exports = { handleRequest };
+server.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
